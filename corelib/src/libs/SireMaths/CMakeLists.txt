@@ -185,7 +185,9 @@ set ( SIREMATHS_HEADERS
       multifixed.h
       multifloat.h
       multiint.h
+      multiquaternion.h
       multiuint.h
+      multivector.h
       nmatrix.h
       nvector.h
       n4matrix.h
@@ -231,7 +233,9 @@ set ( SIREMATHS_SOURCES
       multifixed.cpp
       multifloat.cpp
       multiint.cpp
+      multiquaternion.cpp
       multiuint.cpp
+      multivector.cpp
       nmatrix.cpp
       nvector.cpp
       n4matrix.cpp

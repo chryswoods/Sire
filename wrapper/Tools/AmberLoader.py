@@ -370,10 +370,14 @@ def centerSystem(system, molecule):
     center = molecule.evaluate().center()
     print("This requires translating everything by %s..." % (-center))    
     
+    moved_mols = Molecules()
+
     for molnum in system.molNums():
         molecule = system[molnum].molecule()
         molecule = molecule.move().translate(-center).commit()
-        system.update(molecule)
+        moved_mols.add(molecule)
+
+    system.update(moved_mols)
 
     return system
 
@@ -724,7 +728,7 @@ def addFlexibility(system, reflection_center=None, reflection_radius=None, \
             # radius have been specified...)
             if reflection_radius:
                 move_solute = (Vector.distance(reflection_center, \
-                                  solute_mol.evaluate().center()) < reflection_radius.value())
+                                  solute_mol.evaluate().centerOfMass()) < reflection_radius.value())
 
             if move_solute:
                 print("\nAuto-detecting the flexible degrees of freedom for solute %s" % molnum)
@@ -768,7 +772,7 @@ def addFlexibility(system, reflection_center=None, reflection_radius=None, \
         if reflection_radius:
             for molnum in solvent_group.molNums():
                 solvent_mol = solvent_group[molnum]
-                if Vector.distance(reflection_center, solvent_mol.evaluate().center()) < reflection_radius.value():
+                if Vector.distance(reflection_center, solvent_mol.evaluate().centerOfMass()) < reflection_radius.value():
                     mobile_solvent_group.add(solvent_mol)
                 else:
                     fixed_group.add(solvent_mol)

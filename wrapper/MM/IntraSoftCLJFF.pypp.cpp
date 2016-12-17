@@ -25,10 +25,35 @@ void register_IntraSoftCLJFF_class(){
 
     { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >
         typedef bp::class_< SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >, bp::bases< SireFF::FF3D, SireFF::Intra2BFF<SireMM::SoftCLJPotentialInterface<SireMM::IntraSoftCLJPotential> >, SireMM::SoftCLJPotentialInterface<SireMM::IntraSoftCLJPotential>, SireMM::CLJPotentialInterface<SireMM::IntraSoftCLJPotential>, SireFF::G1FF, SireFF::FF, SireMol::MolGroupsBase, SireBase::Property > > IntraSoftCLJFF_exposer_t;
-        IntraSoftCLJFF_exposer_t IntraSoftCLJFF_exposer = IntraSoftCLJFF_exposer_t( "IntraSoftCLJFF", bp::init< >() );
+        IntraSoftCLJFF_exposer_t IntraSoftCLJFF_exposer = IntraSoftCLJFF_exposer_t( "IntraSoftCLJFF", "", bp::init< >("") );
         bp::scope IntraSoftCLJFF_scope( IntraSoftCLJFF_exposer );
-        IntraSoftCLJFF_exposer.def( bp::init< QString const & >(( bp::arg("name") )) );
-        IntraSoftCLJFF_exposer.def( bp::init< SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > > const & >(( bp::arg("other") )) );
+        IntraSoftCLJFF_exposer.def( bp::init< QString const & >(( bp::arg("name") ), "") );
+        IntraSoftCLJFF_exposer.def( bp::init< SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > > const & >(( bp::arg("other") ), "") );
+        { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::energy
+        
+            typedef SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > > exported_class_t;
+            typedef ::SireUnits::Dimension::MolarEnergy ( ::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::*energy_function_type)(  ) ;
+            energy_function_type energy_function_value( &::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::energy );
+            
+            IntraSoftCLJFF_exposer.def( 
+                "energy"
+                , energy_function_value
+                , "" );
+        
+        }
+        { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::energy
+        
+            typedef SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > > exported_class_t;
+            typedef ::SireUnits::Dimension::MolarEnergy ( ::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::*energy_function_type)( ::SireCAS::Symbol const & ) ;
+            energy_function_type energy_function_value( &::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::energy );
+            
+            IntraSoftCLJFF_exposer.def( 
+                "energy"
+                , energy_function_value
+                , ( bp::arg("component") )
+                , "" );
+        
+        }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::energy
         
             typedef SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > > exported_class_t;
@@ -38,7 +63,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "energy"
                 , energy_function_value
-                , ( bp::arg("energytable"), bp::arg("scale_energy")=1 ) );
+                , ( bp::arg("energytable"), bp::arg("scale_energy")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::energy
@@ -50,7 +76,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "energy"
                 , energy_function_value
-                , ( bp::arg("energytable"), bp::arg("symbol"), bp::arg("scale_energy")=1 ) );
+                , ( bp::arg("energytable"), bp::arg("symbol"), bp::arg("scale_energy")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::field
@@ -62,7 +89,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "field"
                 , field_function_value
-                , ( bp::arg("fieldtable"), bp::arg("scale_field")=1 ) );
+                , ( bp::arg("fieldtable"), bp::arg("scale_field")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::field
@@ -74,7 +102,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "field"
                 , field_function_value
-                , ( bp::arg("fieldtable"), bp::arg("component"), bp::arg("scale_field")=1 ) );
+                , ( bp::arg("fieldtable"), bp::arg("component"), bp::arg("scale_field")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::field
@@ -86,7 +115,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "field"
                 , field_function_value
-                , ( bp::arg("fieldtable"), bp::arg("probe"), bp::arg("scale_field")=1 ) );
+                , ( bp::arg("fieldtable"), bp::arg("probe"), bp::arg("scale_field")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::field
@@ -98,7 +128,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "field"
                 , field_function_value
-                , ( bp::arg("fieldtable"), bp::arg("component"), bp::arg("probe"), bp::arg("scale_field")=1 ) );
+                , ( bp::arg("fieldtable"), bp::arg("component"), bp::arg("probe"), bp::arg("scale_field")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::force
@@ -110,7 +141,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "force"
                 , force_function_value
-                , ( bp::arg("forcetable"), bp::arg("scale_force")=1 ) );
+                , ( bp::arg("forcetable"), bp::arg("scale_force")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::force
@@ -122,7 +154,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "force"
                 , force_function_value
-                , ( bp::arg("forcetable"), bp::arg("symbol"), bp::arg("scale_force")=1 ) );
+                , ( bp::arg("forcetable"), bp::arg("symbol"), bp::arg("scale_force")=1 )
+                , "" );
         
         }
         IntraSoftCLJFF_exposer.def( bp::self != bp::self );
@@ -136,7 +169,8 @@ void register_IntraSoftCLJFF_class(){
                 "assign"
                 , assign_function_value
                 , ( bp::arg("other") )
-                , bp::return_self< >() );
+                , bp::return_self< >()
+                , "" );
         
         }
         IntraSoftCLJFF_exposer.def( bp::self == bp::self );
@@ -149,7 +183,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "potential"
                 , potential_function_value
-                , ( bp::arg("potentialtable"), bp::arg("scale_potential")=1 ) );
+                , ( bp::arg("potentialtable"), bp::arg("scale_potential")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::potential
@@ -161,7 +196,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "potential"
                 , potential_function_value
-                , ( bp::arg("potentialtable"), bp::arg("component"), bp::arg("scale_potential")=1 ) );
+                , ( bp::arg("potentialtable"), bp::arg("component"), bp::arg("scale_potential")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::potential
@@ -173,7 +209,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "potential"
                 , potential_function_value
-                , ( bp::arg("potentialtable"), bp::arg("probe"), bp::arg("scale_potential")=1 ) );
+                , ( bp::arg("potentialtable"), bp::arg("probe"), bp::arg("scale_potential")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::potential
@@ -185,7 +222,8 @@ void register_IntraSoftCLJFF_class(){
             IntraSoftCLJFF_exposer.def( 
                 "potential"
                 , potential_function_value
-                , ( bp::arg("potentialtable"), bp::arg("component"), bp::arg("probe"), bp::arg("scale_potential")=1 ) );
+                , ( bp::arg("potentialtable"), bp::arg("component"), bp::arg("probe"), bp::arg("scale_potential")=1 )
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::typeName
@@ -196,7 +234,8 @@ void register_IntraSoftCLJFF_class(){
             
             IntraSoftCLJFF_exposer.def( 
                 "typeName"
-                , typeName_function_value );
+                , typeName_function_value
+                , "" );
         
         }
         { //::SireFF::Intra2B3DFF< SireMM::SoftCLJPotentialInterface< SireMM::IntraSoftCLJPotential > >::what
@@ -207,7 +246,8 @@ void register_IntraSoftCLJFF_class(){
             
             IntraSoftCLJFF_exposer.def( 
                 "what"
-                , what_function_value );
+                , what_function_value
+                , "" );
         
         }
         IntraSoftCLJFF_exposer.staticmethod( "typeName" );
