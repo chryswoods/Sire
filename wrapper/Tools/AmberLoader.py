@@ -199,7 +199,7 @@ def findMolecule(system, molname):
     molname = molname.upper()
 
     for molnum in molecules.molNums():
-        molecule = molecules[molnum].molecule()
+        molecule = molecules[molnum][0].molecule()
 
         if str(molecule.name().value()).upper() == molname:
             return molecule
@@ -213,16 +213,37 @@ def findMolecule(system, molname):
     return None
 
 
-def createSystem(top_file, crd_file, naming_scheme = NamingScheme()):
-    
-    system = System(top_file)
+def addMoleculeToSystem(molecule, system, naming_scheme = NamingScheme()):
+    """This function adds the passed molecule to the passed system
+       using the passed naming scheme to assign the molecule to the 
+       correct molecule group"""
 
-    # Load all of the molecules and their parameters from
-    # the topology and coordinate files
-    amber = Amber()
-    print("Loading the molecules from the Amber files \"%s\" and \"%s\"..." % \
-                  (crd_file, top_file))
-    (molecules, space) = amber.readCrdTop(crd_file, top_file)
+    resnams = getResidueNames(molecule)
+
+    system.add(molecule, MGName(naming_scheme.allMoleculesGroupName().value()))
+
+    if naming_scheme.isSolute(resnams):
+        system.add(molecule, MGName(naming_scheme.solutesGroupName().value()))
+    elif naming_scheme.isProtein(resnams):
+        system.add(molecule, MGName(naming_scheme.proteinsGroupName().value()))
+    elif naming_scheme.isWater(resnams):
+        system.add(molecule, MGName(naming_scheme.watersGroupName().value()))
+        system.add(molecule, MGName(naming_scheme.solventsGroupName().value()))    
+    elif naming_scheme.isIon(resnams):
+        system.add(molecule, MGName(naming_scheme.ionsGroupName().value()))
+        system.add(molecule, MGName(naming_scheme.solventsGroupName().value()))
+    elif molecule.nResidues() == 1:
+        system.add(molecule, MGName(naming_scheme.solventsGroupName().value()))
+    else:
+        system.add(molecule, MGName(naming_scheme.solutesGroupName().value()))
+
+
+def createSystemFrom(molecules, space, system_name, naming_scheme = NamingScheme()):
+    """Create a new System from the passed molecules and space,
+       sorting the molecules into different molecule groups based on the
+       passed naming scheme"""
+
+    system = System(system_name)
 
     # If requested, change the water model for all water molecules
     if water_model.val == "tip4p":
@@ -365,15 +386,30 @@ def createSystem(top_file, crd_file, naming_scheme = NamingScheme()):
     return system
 
 
+def createSystem(top_file, crd_file, naming_scheme = NamingScheme()):
+    """Create a new System from the molecules read in from the passed amber 
+       topology and coordinate files. This sorts the molecules into different
+       molecule groups based on the passed naming scheme"""
+    
+    system = MoleculeParser.read(top_file,crd_file)
+
+    # Load all of the molecules and their parameters from
+    # the topology and coordinate files
+    print("Loading the molecules from the files \"%s\" and \"%s\"..." % \
+                  (crd_file, top_file))
+
+    return createSystemFrom(system[MGIdx(0)], system.property("space"), top_file, naming_scheme)
+
+
 def centerSystem(system, molecule):
     print("Setting the origin of the system to the center of molecule %s (%s)..." % (molecule, molecule.number()))
-    center = molecule.evaluate().center()
+    center = molecule.evaluate().centerOfMass()
     print("This requires translating everything by %s..." % (-center))    
     
     moved_mols = Molecules()
 
     for molnum in system.molNums():
-        molecule = system[molnum].molecule()
+        molecule = system[molnum][0].molecule()
         molecule = molecule.move().translate(-center).commit()
         moved_mols.add(molecule)
 
@@ -639,19 +675,33 @@ def addFlexibility(system, reflection_center=None, reflection_radius=None, \
                         # now add the atoms needed from the residue to the mobile backbones group
                         atoms = protein_mol.select(ResIdx(i)).selection()
     
-                        if i < (protein_mol.nResidues()-1):
-                            try:
-                                atoms.deselect( hn_atoms + ResIdx(i) )
-                            except:
-                                pass
+                        # for the backbone move to work, the residue must contain
+                        #  AtomName("CA", CaseInsensitive) and AtomName("N", CaseInsensitive) )
+                        has_backbone = False
 
-                        if i > 0:
-                            try:
-                                atoms.select( hn_atoms + ResIdx(i+1) )
-                            except:
-                                pass
+                        try:
+                            if atoms.selected( AtomName("CA", CaseInsensitive) ) and \
+                               atoms.selected( AtomName("N", CaseInsensitive) ):
+                                has_backbone = True
+                        except:
+                            pass
 
-                        mobile_bb_group.add( PartialMolecule(protein_mol, atoms) )
+                        if has_backbone:
+                            if i < (protein_mol.nResidues()-1):
+                                try:
+                                    atoms.deselect( hn_atoms + ResIdx(i) )
+                                except:
+                                    pass
+
+                            if i > 0:
+                                try:
+                                    atoms.select( hn_atoms + ResIdx(i+1) )
+                                except:
+                                    pass
+
+                            mobile_bb_group.add( PartialMolecule(protein_mol, atoms) )
+                        else:
+                            print("Not moving backbone of %s as it doesn't contain atoms N or CA" % protein_mol.residue(ResIdx(i)))
 
                 # now loop over all of the residues and work out which ones are fixed, and which ones
                 # are bonded to fixed residues

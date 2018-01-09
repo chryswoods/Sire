@@ -29,8 +29,6 @@
 #ifndef SIREMOL_MOLECULEINFODATA_H
 #define SIREMOL_MOLECULEINFODATA_H
 
-#include <QSharedData>
-#include <QSharedDataPointer>
 #include <QVector>
 #include <QMultiHash>
 #include <QSet>
@@ -65,6 +63,9 @@
 
 #include "atomsin.hpp"
 #include "resin.hpp"
+
+#include "SireBase/shareddatapointer.hpp"
+#include "SireBase/refcountdata.h"
 
 SIRE_BEGIN_HEADER
 
@@ -120,7 +121,7 @@ class SegInfo;
     
     @author Christopher Woods
 */
-class SIREMOL_EXPORT MoleculeInfoData : public MolInfo, public QSharedData
+class SIREMOL_EXPORT MoleculeInfoData : public MolInfo, public SireBase::RefCountData
 {
 
 friend QDataStream& ::operator<<(QDataStream&, const MoleculeInfoData&);
@@ -201,7 +202,13 @@ public:
     ResIdx resIdx(const ResID &resid) const;
     ChainIdx chainIdx(const ChainID &chainid) const;
     SegIdx segIdx(const SegID &segid) const;
+    
     CGIdx cgIdx(const CGID &cgid) const;
+    CGIdx cgIdx(const ResIdx &residx) const;
+    CGIdx cgIdx(const ResID &resid) const;
+
+    bool isResidueCutting(const ResIdx &residx) const;
+    bool isResidueCutting(const ResID &resid) const;
 
     QList<SegIdx> getSegments() const;
     QList<CGIdx> getCutGroups() const;

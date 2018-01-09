@@ -3,6 +3,55 @@ SIRE changelog
 
 devel branch:
 
+    [2017.3.0] December 2017 - Added new PDB (PDB2), Mol2, Gro87, and CharmmPSF
+               parsers, as well as a GroTop parser, all part of the new
+               MoleculeParser framework. Updated all of the swap-based
+               methods to use this.
+
+               Removed the ViewsOfMol Python wrapper and now have the
+               code automatically return the correct python object for
+               the molecule (or part of molecule) that is returned from
+               the system. This makes simple scripts easier to write.
+
+               General bugfixes and optimisations, including fixing
+               bugs with the way that PropertyMap worked, cleaning
+               up to/from converters from python objects to automatic
+               Property wrappers, and fixing Process so that it can
+               redirect to stdout and that isRunning works without the
+               user having to call "wait" first!
+
+    [2017.2.0] September 2017 - The MoleculeParser framework has 
+               been created to support reading and writing of molecules 
+               in lots of different formats. The first set of formats 
+               that have been completed are Amber Prmtop, Amber Rst7 
+               and Amber Rst/Trj. The parsers work in parallel, with 
+               file formats automatically detected by the parser, 
+               e.g. system = MoleculeParser.read( "file.prm", "file.rst" ) 
+               will automatically do the right thing.
+
+               Improved automatic compilation on Arch linux. 
+
+               Fixed temperature checking and general bugfixing for mbar code.
+
+    [2017.1.0] April 20 2017 - First 2017 release. Included new
+            parallel MoleculeParser code for reading molecules,
+            and moved fully over to C++-14 style coding for new code.
+            Included AVX-512 vectorisation for Intel KNL and can
+            now successfully compile and run using GCC 5 and GCC 6,
+            as well as Intel 2017 compilers and Clang.
+
+    [2016.3.1] January 9 2017 - Minor patch release that fixes bugs:
+        (1) Correctly sets MACOSX_DEPLOYMENT_TARGET to 10.8 so executable works 
+            on OS X 10.8 (Mountain Lion) and above
+        (2) Fixed a parsing bug in Parameter that prevented integer or float
+            parameters from being passed to ligandswap, waterswap etc.
+        (3) Fixed a small bug in MultiDouble that meant it lost precision when
+            swapping individual values
+        (4) Fixed a parsing bug in Parameter that meant that windows path names
+            were not interpreted correctly
+        (5) Fixed the build scripts so that they placed bundled libraries into
+            bundled/lib rather than bundled/lib64 (affected SUSE-based distributions)
+
     [2016.3.0] December 22 2016 - Public release containing full LigandSwap. Uses
      new optimised forcefields for energy calculations, built on top of Intel Threaded
      Building Blocks for parallelisation. New code is significantly faster with better

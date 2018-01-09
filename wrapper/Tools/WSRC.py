@@ -49,6 +49,11 @@ grid_buffer = Parameter("grid buffer", 2*angstrom,
 
 disable_grid = Parameter("disable grid", False, """Whether or not to disable use of the grid""")
 
+fast_sim = Parameter("fast simulation", False,
+                     """Switch on options that simplify the calculation so that it is significantly
+                        sped up. The calculation has much lower accuracy, but could be useful
+                        as a way to quickly get residue values, or to equilibrate a longer calculation""")
+
 use_oldff = Parameter("use old forcefields", False, """For debugging, use the old forcefields rather than the 
                                                        new forcefields""")
 
@@ -64,6 +69,11 @@ identity_atoms = Parameter("identity atoms", None,
 use_fixed_points = Parameter("fixed points", False,
                              """Whether or not to use fixed identity points based on looking at
                                 the overlap with the atoms""")
+
+use_water_points = Parameter("water points", False,
+                             """Whether or not to move the identity points to the oxygens of
+                                the swap water molecules, and so keep them fixed in space during
+                                the simulation""")
 
 use_fixed_ligand = Parameter("fixed ligand", False,
                              """Whether or not to completely fix the ligand during the simulation.""")
@@ -85,10 +95,9 @@ reflect_volume_buffer = Parameter("reflect volume buffer", 0*angstrom,
                                      that are within 'reflect volume radius + reflect volume buffer' of any of 
                                      the heavy atoms of the swapped ligand.""")
 
-n_equil_reflect = Parameter("reflect volume nequilmoves", 100000,
-                            """The number of moves to equilibrate the swap water cluster before applying
-                               the reflection volume constraint. Note that this option is only used if 
-                               'reflect volume' is True""")
+n_equil_swap = Parameter("swap water nequilmoves", 5000,
+                         """The number of moves to equilibrate the swap water cluster before applying
+                            the identity or reflection volume constraint.""")
 
 alpha_scale = Parameter("alpha_scale", 1.0,
                         """Amount by which to scale the alpha parameter. The lower the value,
@@ -108,6 +117,10 @@ waterbox_only = Parameter("waterbox only", False,
 
 nrgmon_frequency = Parameter("energy monitor frequency", 1000, 
                              """The number of steps between each evaluation of the energy monitors.""")
+
+save_all_nrgmons = Parameter("save energy monitors", False,
+                             """When debugging, you may want to switch on the saving of energy
+                                monitors. Normally you shouldn't need to save these.""")
 
 lambda_values = Parameter("lambda values", [ 0.005, 0.071, 0.137, 0.203, 0.269, 0.335, 0.401, 0.467, 0.533, 0.599, 0.665, 0.731, 0.797, 0.863, 0.929, 0.995 ],
                           """The values of lambda to use in the RETI free energy simulation. Note that it is not a good idea
@@ -237,7 +250,7 @@ def getOverlapWaters(ligand, waters, radius=2*angstrom):
     coords = CoordGroup(coords)
 
     for molnum in waters.molNums():
-        water = waters[molnum].molecule()
+        water = waters[molnum][0].molecule()
 
         oxygen = None
 
@@ -353,15 +366,24 @@ def setCLJProperties(forcefield):
         print("Cannot interpret the cutoff method from \"%s\"" % cutoff_method.val, file=sys.stderr)
 
     forcefield.setSpace(Cartesian())
-    forcefield.setSwitchingFunction( HarmonicSwitchingFunction(coul_cutoff.val,coul_cutoff.val,
-                                                               lj_cutoff.val,lj_cutoff.val) )
+
+    if fast_sim.val:
+        forcefield.setSwitchingFunction( HarmonicSwitchingFunction(7.5 * angstrom, 7.5 * angstrom,
+                                                                   7.5 * angstrom, 7.5 * angstrom) )
+    else:
+        forcefield.setSwitchingFunction( HarmonicSwitchingFunction(coul_cutoff.val,coul_cutoff.val,
+                                                                   lj_cutoff.val,lj_cutoff.val) )
 
     return forcefield
 
 
 def setFakeGridProperties(forcefield):
-    forcefield.setSwitchingFunction( HarmonicSwitchingFunction(coul_cutoff.val,coul_cutoff.val,
-                                                               lj_cutoff.val,lj_cutoff.val) )
+    if fast_sim.val:
+        forcefield.setSwitchingFunction( HarmonicSwitchingFunction(7.5*angstrom, 7.5*angstrom,
+                                                                   7.5*angstrom, 7.5*angstrom) )
+    else:
+        forcefield.setSwitchingFunction( HarmonicSwitchingFunction(coul_cutoff.val,coul_cutoff.val,
+                                                                   lj_cutoff.val,lj_cutoff.val) )
     forcefield.setSpace(Cartesian())
 
     return forcefield
@@ -370,8 +392,13 @@ def setFakeGridProperties(forcefield):
 def setGridProperties(forcefield, extra_buffer=0*angstrom):
     forcefield.setGridSpacing(grid_spacing.val)
     forcefield.setBuffer(grid_buffer.val + extra_buffer)
-    forcefield.setLJCutoff(lj_cutoff.val)
-    forcefield.setCoulombCutoff(coul_cutoff.val)
+
+    if fast_sim.val:
+        forcefield.setLJCutoff(7.5*angstrom)
+        forcefield.setCoulombCutoff(7.5*angstrom)
+    else:
+        forcefield.setLJCutoff(lj_cutoff.val)
+        forcefield.setCoulombCutoff(coul_cutoff.val)
 
     return forcefield
 
@@ -385,8 +412,14 @@ def setSoftCoreProperties(forcefield):
 
 def setCLJFuncProperties(cljfunc):
     cljfunc.setSpace(Cartesian())
-    cljfunc.setCoulombCutoff(coul_cutoff.val)
-    cljfunc.setLJCutoff(lj_cutoff.val)
+
+    if fast_sim.val:
+        cljfunc.setCoulombCutoff(7.5*angstrom)
+        cljfunc.setLJCutoff(7.5*angstrom)
+    else:
+        cljfunc.setCoulombCutoff(coul_cutoff.val)
+        cljfunc.setLJCutoff(lj_cutoff.val)
+
     cljfunc.setArithmeticCombiningRules( True )
 
     return cljfunc
@@ -494,6 +527,50 @@ def createWSRCMoves(system):
     # the system
     moves = WeightedMoves()
 
+    if fast_sim.val:
+        # we will only move the water
+        max_water_translation = 0.15 * angstroms
+        max_water_rotation = 15 * degrees
+
+        if mobile_swap.nViews() > 0:
+            rb_moves = RigidBodyMC(mobile_swap)
+            rb_moves.setMaximumTranslation(max_water_translation)
+            rb_moves.setMaximumRotation(max_water_rotation)
+
+            if use_reflect_volume.val:
+                rb_moves.setReflectionVolume( mobile_ligand[MolIdx(0)], reflect_volume_radius.val )
+
+            moves.add(rb_moves, 4 * mobile_swap.nViews())
+
+
+        if mobile_solvent.nViews() > 0:
+            rb_moves = RigidBodyMC(mobile_solvent)
+            rb_moves.setMaximumTranslation(max_water_translation)
+            rb_moves.setMaximumRotation(max_water_rotation)
+
+            if system.containsProperty("reflection sphere radius"):
+                reflection_radius = float(str(system.property("reflection sphere radius"))) * angstroms
+                reflection_center = system.property("reflection center").toVector()[0]
+                rb_moves.setReflectionSphere(reflection_center, reflection_radius)
+
+            moves.add(rb_moves, 4 * mobile_solvent.nViews())
+
+        moves.setTemperature(temperature.val)
+
+        seed = random_seed.val
+
+        if seed is None:
+            seed = RanGenerator().randInt(100000,1000000)
+            print("Using generated random number seed %d" % seed)
+        else:
+            print("Using supplied random number seed %d" % seed)
+
+        moves.setGenerator( RanGenerator(seed) )
+
+        return moves
+    
+    # we are performing a normal simulation, moving everything
+  
     # create zmatrix moves to move the protein sidechains
     if mobile_sidechains.nViews() > 0:
         sc_moves = ZMatMove(mobile_sidechains)
@@ -513,7 +590,7 @@ def createWSRCMoves(system):
             scale_moves = 10
 
             # get the amount to translate and rotate from the ligand's flexibility object
-            flex = mobile_ligand.moleculeAt(0).molecule().property("flexibility")
+            flex = mobile_ligand.moleculeAt(0)[0].molecule().property("flexibility")
 
             if use_rot_trans_ligand.val:
                 if (flex.translation().value() != 0 or flex.rotation().value() != 0):
@@ -525,7 +602,7 @@ def createWSRCMoves(system):
                     # the ligand is not allowed to move away from its original position,
                     # as we don't want to sample "unbound" states
                     if not ligand_reflection_radius.val is None:
-                        rb_moves.setReflectionSphere(mobile_ligand.moleculeAt(0).molecule().evaluate().centerOfMass(), 
+                        rb_moves.setReflectionSphere(mobile_ligand.moleculeAt(0)[0].molecule().evaluate().centerOfMass(), 
                                                      ligand_reflection_radius.val)
 
                     scale_moves = scale_moves / 2
@@ -605,12 +682,22 @@ def createWSRCMoves(system):
 def renumberMolecules(molgroup):
     newgroup = MoleculeGroup(molgroup.name().value())
     for molnum in molgroup.molNums():
-        mol = molgroup[molnum]
+        mol = molgroup[molnum][0]
         newmol = mol.molecule().edit().renumber().commit()
         newgroup.add( ViewsOfMol(newmol,mol.selections()) )
 
     return newgroup
 
+def pruneLambda(lamvals):
+    """Half the passed number of lambda values"""
+
+    n = len(lamvals)
+
+    if n % 2 == 0:
+        mid = int(n/2)
+        return lamvals[0:mid:2] + lamvals[mid+1::2]
+    else:
+        return lamvals[0::2]
 
 def getLambdaValues():
     """Return the lambda values to use for the simulation. Lambda scale from 0 to 1
@@ -642,6 +729,9 @@ def getLambdaValues():
             if lam >= 0.0 and lam <= 1.0:
                 lamvals.append( 0.75 + (0.25*(1.0-lam)) )
 
+        if fast_sim.val:
+            lamvals = pruneLambda(lamvals)
+
         return lamvals
 
     else:
@@ -653,6 +743,9 @@ def getLambdaValues():
         for lam in swap_lams:
             if lam >= 0.0 and lam <= 1.0:
                 lamvals.append(lam)
+
+        if fast_sim.val:
+            lamvals = pruneLambda(lamvals)
 
         return lamvals
 
@@ -717,7 +810,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
     if MGName("mobile_solvents") in water_system.mgNames():
         mols = water_system[MGName("mobile_solvents")].molecules()
         for molnum in mols.molNums():
-            water_mol = mols[molnum].molecule().edit().renumber().commit()
+            water_mol = mols[molnum][0].molecule().edit().renumber().commit()
             for j in range(0,water_mol.nResidues()):
                 water_mol = water_mol.residue( ResIdx(j) ).edit() \
                                            .setProperty( PDB.parameters().pdbResidueName(), "FWT" ) \
@@ -730,7 +823,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
     if MGName("fixed_molecules") in water_system.mgNames():
         mols = water_system[MGName("fixed_molecules")].molecules()
         for molnum in mols.molNums():
-            fixed_free_water_group.add( mols[molnum].molecule().edit().renumber().commit() )
+            fixed_free_water_group.add( mols[molnum][0].molecule().edit().renumber().commit() )
 
     # create a group to hold all of the fixed molecules in the bound leg
     fixed_bound_group = MoleculeGroup("fixed_bound")
@@ -759,7 +852,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
     if MGName("mobile_solvents") in protein_system.mgNames():
         mols = protein_system[MGName("mobile_solvents")]
         for molnum in mols.molNums():
-            solvent_mol = mols[molnum].molecule()
+            solvent_mol = mols[molnum][0].molecule()
 
             try:
                 # this is a water molecule if we can swap the coordinates with the 
@@ -813,37 +906,35 @@ def mergeSystems(protein_system, water_system, ligand_mol):
             boundary_molecules = MoleculeGroup()
 
         for molnum in all_proteins.molNums():
-            protein_mol = all_proteins[molnum].join()
+            protein_mol = Molecule.join(all_proteins[molnum])
             
             if protein_mol.selectedAll():
                 bound_protein_intra_group.add(protein_mol)
                 bound_leg.add(protein_mol)
 
-                mobile_protein = None                
+                mobile_protein = []                
 
-                try:
-                    mobile_protein = protein_sidechains[molnum]
-                    mobile_bound_protein_sidechains_group.add( mobile_protein )
-                except:
-                    pass
+                if protein_sidechains.contains(molnum):
+                    sidechains = protein_sidechains[molnum]
+                    for sidechain in sidechains:
+                        mobile_bound_protein_sidechains_group.add( sidechain )
 
-                try:
-                    if mobile_protein is None:
-                        mobile_protein = protein_backbones[molnum]
-                        mobile_bound_protein_backbones_group.add( mobile_protein )
-                    else:
-                        mobile_protein.add( protein_backbones[molnum].selection() )
-                        mobile_bound_protein_backbones_group.add( protein_backbones[molnum] )
-                except:
-                    pass
+                    mobile_protein += sidechains
 
-                if not (mobile_protein is None):
-                    mobile_bound_proteins_group.add( mobile_protein.join() )
+                if protein_backbones.contains(molnum):
+                    backbones = protein_backbones[molnum]
+                    for backbone in backbones:
+                        mobile_bound_protein_backbones_group.add( backbone )
+
+                    mobile_protein += backbones
+
+                if len(mobile_protein) > 0:
+                    mobile_bound_proteins_group.add( Molecule.join(mobile_protein) )
 
             else:
                 # only some of the atoms have been selected. We will extract
                 # the mobile atoms and will then update all of the other selections
-                print("Extracting the mobile atoms of protein %s" % protein_mol)
+                print("Extracting the mobile atoms of protein %s" % protein_mol.molecule())
                 new_protein_mol = protein_mol.extract()
                 print("Extracted %d mobile atoms from %d total atoms..." % \
                                         (new_protein_mol.nAtoms(), protein_mol.molecule().nAtoms()))
@@ -854,14 +945,14 @@ def mergeSystems(protein_system, water_system, ligand_mol):
                 mobile_protein_view = new_protein_mol.selection()
                 mobile_protein_view = mobile_protein_view.selectNone()
 
-                try:
+                if protein_sidechains.contains(molnum):
                     sidechains = protein_sidechains[molnum]
 
-                    for i in range(0,sidechains.nViews()):
+                    for sidechain in sidechains:
                         view = new_protein_mol.selection()
                         view = view.selectNone()
 
-                        for atomid in sidechains.viewAt(i).selectedAtoms():
+                        for atomid in sidechain.selection().selectedAtoms():
                             atom = protein_mol.atom(atomid)
                             resatomid = ResAtomID( atom.residue().number(), atom.name() )
                             view = view.select( resatomid )
@@ -869,17 +960,15 @@ def mergeSystems(protein_system, water_system, ligand_mol):
 
                         if view.nSelected() > 0:
                             mobile_bound_protein_sidechains_group.add( PartialMolecule(new_protein_mol, view) )
-                except:
-                    pass
 
-                try:
+                if protein_backbones.contains(molnum):
                     backbones = protein_backbones[molnum]
 
-                    for i in range(0,backbones.nViews()):
+                    for backbone in backbones:
                         view = new_protein_mol.selection()
                         view = view.selectNone()
 
-                        for atomid in backbones.viewAt(i).selectedAtoms():
+                        for atomid in backbone.selection().selectedAtoms():
                             atom = protein_mol.atom(atomid)
                             resatomid = ResAtomID( atom.residue().number(), atom.name() )
                             view = view.select( resatomid )
@@ -887,8 +976,9 @@ def mergeSystems(protein_system, water_system, ligand_mol):
 
                         if view.nSelected() > 0:
                             mobile_bound_protein_backbones_group.add( PartialMolecule(new_protein_mol, view) )
-                except:
-                    pass
+
+                print("Number of moved protein sidechain residues = %s" % mobile_bound_protein_sidechains_group.nViews())
+                print("Number of moved protein backbone residues = %s" % mobile_bound_protein_backbones_group.nViews())
 
                 if mobile_protein_view.nSelected() > 0:
                     mobile_bound_proteins_group.add( PartialMolecule(new_protein_mol, mobile_protein_view) )
@@ -928,7 +1018,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
         # Rename the residues of the swap solvent so that they are easy
         # to find in the output PDBs
         for i in range(0,len(identity_points)):
-            swap_water_mol = mobile_free_water_group.moleculeAt(i).molecule()
+            swap_water_mol = mobile_free_water_group.moleculeAt(i)[0].molecule()
             mobile_free_water_group.remove(swap_water_mol)
 
             for j in range(0,swap_water_mol.nResidues()):
@@ -937,6 +1027,65 @@ def mergeSystems(protein_system, water_system, ligand_mol):
                                                .commit().molecule()
 
             swap_water_group.add(swap_water_mol)
+
+        print("found %d molecules that are now part of the swap water cluster" % swap_water_group.nMolecules())
+        PDB().write(swap_water_group.molecules(), "swapcluster00.pdb")
+
+        # now equilibrate the swap water cluster, if requested
+        if n_equil_swap.val:
+            move = RigidBodyMC(swap_water_group)
+            move.setMaximumTranslation(0.15*angstrom)
+            move.setMaximumRotation(15*degrees)
+
+            # use the same random number seed so that the swap water cluster is reproducible
+            move.setGenerator( RanGenerator(4039251) )
+
+            equil_system = System()
+
+            ff = InterFF("interff")
+            ff.setCLJFunction( getInterCLJFunction() )
+            ff = setNewGridProperties(ff)
+
+            ff.add(swap_water_group)
+
+            fixed_mols = bound_leg.molecules()
+            fixed_mols.remove(ligand_mol.number())
+
+            ff.addFixedAtoms(fixed_mols)
+
+            equil_system.add(swap_water_group)
+            equil_system.add(ff)
+
+            n = n_equil_swap.val
+            print("Equilibrating the swap water cluster (moves = %d)" % n)
+
+            if n > 10:
+                for i in range(1,11):
+                    move.move(equil_system, int(n / 10), False)
+            else:
+                move.move(equil_system, n, False)
+
+            swap_water_group = equil_system[ swap_water_group.name() ]
+
+            PDB().write(swap_water_group, "swapcluster01.pdb")
+
+            print("Complete. Equilibrated water molecules in file 'swapcluster01.pdb'")
+
+        if use_water_points.val:
+            # use identity points that are fixed in space based on the current position
+            # of the center of each molecule of the swap water cluster. This prevents the swap cluster
+            # from changing shape too much during the calculation
+            print("\nUsing identity points based on fixed positions in space from the swap water cluster...")
+            
+            fixed_points = []
+
+            for i in range(0,swap_water_group.nMolecules()):
+                sw = swap_water_group.molecule(MolIdx(i))[0].molecule()
+                fixed_points.append( VectorPoint(sw.evaluate().centerOfMass()) )
+
+            print("Using fixed identity points %s" % fixed_points)
+            identity_points = fixed_points
+
     else:
         # we will be using the reflection volume to get the swap water cluster
         swap_water_group = MoleculeGroup("swap water")
@@ -951,7 +1100,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
         print("Swap water cluster based on the %d water molecules overlapping with the ligand." % swap_waters.nMolecules())
 
         for molnum in swap_waters.molNums():
-            swap_water = swap_waters[molnum].molecule()
+            swap_water = swap_waters[molnum][0].molecule()
 
             for j in range(0,swap_water.nResidues()):
                 swap_water = swap_water.residue( ResIdx(j) ).edit() \
@@ -1324,7 +1473,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
             protein_intraff.setUse14Calculation(False)
 
             for molnum in bound_protein_intra_mols.molNums():
-                protein_mol = bound_protein_intra_mols[molnum].join()
+                protein_mol = Molecule.join(bound_protein_intra_mols[molnum])
                 protein_intraclj.add(protein_mol)
                 protein_intraff.add(protein_mol)
 
@@ -1337,7 +1486,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
             protein_intraff.setUse14Calculation(True)
 
             for molnum in bound_protein_intra_mols.molNums():
-                protein_mol = bound_protein_intra_mols[molnum].join()
+                protein_mol = Molecule.join(bound_protein_intra_mols[molnum])
                 protein_intraclj.add(protein_mol)
                 protein_intraff.add(protein_mol)
 
@@ -1354,7 +1503,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
             solute_intraff.setUse14Calculation(False)
 
             for molnum in bound_solute_intra_mols.molNums():
-                solute_mol = bound_solute_intra_mols[molnum].join()
+                solute_mol = Molecule.join(bound_solute_intra_mols[molnum])
                 solute_intraclj.add(solute_mol)
                 solute_intraff.add(solute_mol)
 
@@ -1367,7 +1516,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
             solute_intraff.setUse14Calculation(True)
 
             for molnum in bound_solute_intra_mols.molNums():
-                solute_mol = bound_solute_intra_mols[molnum].join()
+                solute_mol = Molecule.join(bound_solute_intra_mols[molnum])
                 solute_intraclj.add(solute_mol)
                 solute_intraff.add(solute_mol)
 
@@ -2447,7 +2596,7 @@ def mergeSystems(protein_system, water_system, ligand_mol):
         freewater_assigner.update(system)
 
         boundwater_nrgmon = FreeEnergyMonitor(boundwater_assigner, ligand_group, mobile_swap)
-        freewater_nrgmon = FreeEnergyMonitor(freewater_assigner, ligand_group, mobile_swap)
+        freewater_nrgmon = FreeEnergyMonitor(freewater_assigner, mobile_swap, ligand_group)
 
         nrgmons["boundwater_nrgmon"] = boundwater_nrgmon
         nrgmons["freewater_nrgmon"] = freewater_nrgmon
@@ -2550,7 +2699,7 @@ def loadWSRC():
         print("Loading from Amber files %s / %s..." % (protein_topfile.val, protein_crdfile.val))
         # Add the name of the ligand to the list of solute molecules
         proteinsys_scheme = NamingScheme()
-        proteinsys_scheme.addSoluteResidueName(ligand_name.val)
+        proteinsys_scheme.addSoluteResidueName( ligand_name.val )
 
         # Load up the system. This will automatically find the protein, solute, water, solvent
         # and ion molecules and assign them to different groups
@@ -2563,7 +2712,7 @@ def loadWSRC():
 
         # Center the system with the ligand at (0,0,0)
         proteinsys = centerSystem(proteinsys, ligand_mol)
-        ligand_mol = proteinsys[ligand_mol.number()].molecule()
+        ligand_mol = proteinsys[ligand_mol.number()][0].molecule()
 
         proteinsys = addFlexibility(proteinsys, Vector(0,0,0), reflection_radius.val, proteinsys_scheme )
         Sire.Stream.save(proteinsys, protein_s3file.val)

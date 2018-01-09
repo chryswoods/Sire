@@ -7,9 +7,13 @@
 
 namespace bp = boost::python;
 
+#include "SireBase/refcountdata.h"
+
 #include "SireStream/datastream.h"
 
 #include "majorminorversion.h"
+
+#include <QDataStream>
 
 #include "majorminorversion.h"
 

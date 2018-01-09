@@ -22,6 +22,7 @@ else()
   message( STATUS "Compiling and installing a bundled version of Intel's Threaded Building Blocks (TBB)" )
 
   set( TBB_ZIPFILE "${CMAKE_SOURCE_DIR}/src/bundled/tbb.tar.gz" )
+  set( TBB_PATCH_ZIPFILE "${CMAKE_SOURCE_DIR}/src/bundled/tbb_patch.tar.gz")
 
   if (EXISTS "${TBB_ZIPFILE}")
     set( TBB_BUILD_DIR "${BUNDLE_BUILDDIR}/tbb" )
@@ -35,11 +36,24 @@ else()
       )
     endif()
 
+    if (EXISTS "${TBB_PATCH_ZIPFILE}")
+      message( STATUS "Unzipping ${TBB_PATCH_ZIPFILE} to ${TBB_BUILD_DIR}" )
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E tar xzf ${TBB_PATCH_ZIPFILE}
+            WORKING_DIRECTORY ${BUNDLE_BUILDDIR}
+            OUTPUT_QUIET ERROR_QUIET
+        )
+    endif()
+
+    # switch on C++0x support so that we have exact exception
+    # propagation (don't use c++14 as will require >= GCC 5)
+    set( TBB_OPTIONS "${TBB_OPTIONS};stdver=c++11" )
+
     if ( SIRE_HAS_CPP_LIB )
       set( TBB_OPTIONS "${TBB_OPTIONS};stdlib=libc++" )
     endif()
 
-    if ( ${SIRE_COMPILER} MATCHES "ICPC" )
+    if ( ${SIRE_COMPILER} MATCHES "INTEL" )
       if (WINDOWS)
         set( TBB_OPTIONS "${TBB_OPTIONS};compiler=icl" )
       else()
@@ -66,6 +80,7 @@ else()
     endif()
 
     string(STRIP ${CMAKE_MATCH_1} TBB_BUILD_PREFIX)
+
     set(TBB_INSTALL_DIR "${TBB_BUILD_DIR}/build/${TBB_BUILD_PREFIX}_release")
     message( STATUS "TBB will be built in the directory ${TBB_INSTALL_DIR}" )
 
@@ -89,20 +104,22 @@ else()
     find_library( TBB_MALLOC_LIBRARY "tbbmalloc" PATHS ${TBB_INSTALL_DIR} NO_DEFAULT_PATH )
 
     if ( TBB_MALLOC_LIBRARY )
-      if (EXISTS "${TBB_MALLOC_LIBRARY}.2" )
-        # On Linux, the library is libtbb_malloc.so.2, not libtbb_malloc.so
-        set( TBB_MALLOC_LIBRARY "${TBB_MALLOC_LIBRARY}.2" )
-      endif()
+      message( STATUS "Built tbbmalloc library ${TBB_MALLOC_LIBRARY}" )
+    else()
+      message( FATAL_ERROR "Strange? The tbbmalloc library has not been built!" )
     endif()
 
     if ( TBB_LIBRARY )
-      if (EXISTS "${TBB_LIBRARY}.2")
-        # On Linux, the library is libtbb.so.2, not libtbb.so
-        set( TBB_LIBRARY "${TBB_LIBRARY}.2" )
-      endif()
-
       execute_process( COMMAND ${CMAKE_COMMAND} -E copy ${TBB_LIBRARY} ${BUNDLE_STAGEDIR}/lib )
       execute_process( COMMAND ${CMAKE_COMMAND} -E copy ${TBB_MALLOC_LIBRARY} ${BUNDLE_STAGEDIR}/lib )
+
+      if (EXISTS "${TBB_LIBRARY}.2")
+        execute_process( COMMAND ${CMAKE_COMMAND} -E copy ${TBB_LIBRARY}.2 ${BUNDLE_STAGEDIR}/lib )
+      endif()
+
+      if (EXISTS "${TBB_MALLOC_LIBRARY}.2" )
+        execute_process( COMMAND ${CMAKE_COMMAND} -E copy ${TBB_MALLOC_LIBRARY}.2 ${BUNDLE_STAGEDIR}/lib )
+      endif()
 
       execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_BUILD_DIR}/include ${BUNDLE_STAGEDIR}/include )
 
@@ -121,7 +138,7 @@ else()
         execute_process( COMMAND ${CMAKE_INSTALL_NAME_TOOL} -id "@rpath/libtbbmalloc.dylib" ${TBB_MALLOC_LIBRARY} )
       endif()
     else()
-      message( STATUS "WARNING: TBB library was not built in the expected directory.")
+      message( FATAL_ERROR "WARNING: TBB library was not built in the expected directory.")
     endif()
   endif()
 endif()
@@ -131,5 +148,5 @@ if ( TBB_LIBRARY AND TBB_MALLOC_LIBRARY )
   message( STATUS "Libraries ${TBB_LIBRARY} | ${TBB_MALLOC_LIBRARY}" )
   set( SIRE_FOUND_TBB TRUE )
 else()
-  message( STATUS "Strange? Cannot find the compiled TBB library. We cannot compile it, so will need to rely on the system version..." )
+  message( FATAL_ERROR "Strange? Cannot find the compiled TBB library. We cannot compile it, so will need to rely on the system version..." )
 endif()

@@ -12,6 +12,7 @@ include_directories(${TBB_INCLUDE_DIR})
 
 # Define the headers in SireMM
 set ( SIREMM_HEADERS
+      amberparams.h
       anglerestraint.h
       atomfunctions.h
       atomljs.h
@@ -40,6 +41,7 @@ set ( SIREMM_HEADERS
       fouratomfunctions.h
       gridff.h
       gridff2.h
+      gromacsparams.h
       intercljff.h
       intercoulombff.h
       interff.h
@@ -83,6 +85,7 @@ set ( SIREMM_SOURCES
 
       register_siremm.cpp
 
+      amberparams.cpp
       anglerestraint.cpp
       atomfunctions.cpp
       atomljs.cpp
@@ -110,6 +113,7 @@ set ( SIREMM_SOURCES
       fouratomfunctions.cpp
       gridff.cpp
       gridff2.cpp
+      gromacsparams.cpp
       intercljff.cpp
       intercoulombff.cpp
       interff.cpp

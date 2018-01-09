@@ -194,7 +194,10 @@ coulomb_power = Parameter("coulomb power", 0,
 
 energy_frequency = Parameter("energy frequency", 1,
                              """The number of time steps between evaluation of free energy gradients.""")
+
 simfile = Parameter("outdata_file", "simfile.dat", """Filename that records all output needed for the free energy analysis""")
+
+perturbed_resnum = Parameter("perturbed residue number",1,"""The residue number of the molecule to morph.""")
 
 verbose = Parameter("verbose", False, """Print debug output""")
 
@@ -270,7 +273,7 @@ def centerSolute(system, space):
     else:
         box_center = Vector(0.0, 0.0, 0.0)
 
-    solute = system.molecules().at(MolNum(1))  #first().molecule()
+    solute = system.molecules().at(MolNum(1))[0].molecule() 
 
     solute_cog = CenterOfGeometry(solute).point()
 
@@ -279,7 +282,7 @@ def centerSolute(system, space):
     molNums = system.molNums()
 
     for molnum in molNums:
-        mol = system.molecule(molnum).molecule()
+        mol = system.molecule(molnum)[0].molecule()
         molcoords = mol.property("coordinates")
         molcoords.translate(delta)
         mol = mol.edit().setProperty("coordinates", molcoords).commit()
@@ -296,7 +299,7 @@ def createSystem(molecules):
     moleculeList = []
 
     for moleculeNumber in moleculeNumbers:
-        molecule = molecules.molecule(moleculeNumber).molecule()
+        molecule = molecules.molecule(moleculeNumber)[0].molecule()
         moleculeList.append(molecule)
 
     molecules = MoleculeGroup("molecules")
@@ -376,7 +379,7 @@ def setupForcefields(system, space):
         molnums = molecules.molecules().molNums()
 
         for molnum in molnums:
-            mol = molecules.molecule(molnum).molecule()
+            mol = molecules.molecule(molnum)[0].molecule()
             try:
                 mol_restrained_atoms = propertyToAtomNumVectorList(mol.property("restrainedatoms"))
             except UserWarning as error:
@@ -569,7 +572,7 @@ def setupRestraints(system):
     molnums = molecules.molNums()
 
     for molnum in molnums:
-        mol = molecules.molecule(molnum).molecule()
+        mol = molecules.molecule(molnum)[0].molecule()
         nats = mol.nAtoms()
         atoms = mol.atoms()
 
@@ -609,14 +612,15 @@ def setupDistanceRestraints(system, restraints=None):
     prop_list = []
 
     molecules = system[MGName("all")].molecules()
-
+    
     if restraints is None:
-        dic_items = list(distance_restraints_dict.val.items())
+        #dic_items = list(distance_restraints_dict.val.items())
+        dic_items = list(dict(distance_restraints_dict.val).items())
     else:
         dic_items = list(restraints.items())
 
     for i in range(0, molecules.nMolecules()):
-        mol = molecules.molecule(MolNum(i + 1)).molecule()
+        mol = molecules.molecule(MolNum(i + 1))[0].molecule()
         atoms_mol = mol.atoms()
         natoms_mol = mol.nAtoms()
         for j in range(0, natoms_mol):
@@ -638,7 +642,7 @@ def setupDistanceRestraints(system, restraints=None):
     [unique_prop_list.append(item) for item in prop_list if item not in unique_prop_list]
     print (unique_prop_list)
     #Mol number 0 will store all the information related to the bond-links in the system
-    mol0 = molecules.molecule(MolNum(1)).molecule()
+    mol0 = molecules.molecule(MolNum(1))[0].molecule()
     mol0 = mol0.edit().setProperty("linkbonds", linkbondVectorListToProperty(unique_prop_list)).commit()
     system.update(mol0)
 
@@ -651,7 +655,7 @@ def freezeResidues(system):
     molnums = molecules.molNums()
 
     for molnum in molnums:
-        mol = molecules.molecule(molnum).molecule()
+        mol = molecules.molecule(molnum)[0].molecule()
         nats = mol.nAtoms()
         atoms = mol.atoms()
 
@@ -679,7 +683,7 @@ increase from the heavy atom the hydrogen is bonded to.
     molnums = molecules.molNums()
 
     for molnum in molnums:
-        mol = molecules.molecule(molnum).molecule()
+        mol = molecules.molecule(molnum)[0].molecule()
         nats = mol.nAtoms()
         atoms = mol.atoms()
 
@@ -765,7 +769,7 @@ increase from the heavy atom the hydrogen is bonded to.
                         and try again.""" % atidx)
                 sys.exit(-1)
 
-            mol = mol.edit().atom(atidx).setProperty("mass", newmass ).molecule()
+            mol = mol.edit().atom(atidx).setProperty("mass", newmass )[0].molecule()
 
         system.update(mol)
         #import pdb; pdb.set_trace()
@@ -813,17 +817,27 @@ def createSystemFreeEnergy(molecules):
     moleculeList = []
 
     for moleculeNumber in moleculeNumbers:
-        molecule = molecules.molecule(moleculeNumber).molecule()
+        molecule = molecules.molecule(moleculeNumber)[0].molecule()
         moleculeList.append(molecule)
 
-    #
-    # The code below assumes that the solute to be perturbed is
-    # the first molecule in the top file.
+    # Scan input to find a molecule with passed residue number 
     # The residue name of the first residue in this molecule is
     # used to name the solute. This is used later to match
     # templates in the flex/pert files.
 
-    solute = moleculeList[0]
+    solute = None
+    for molecule in moleculeList:
+        if ( molecule.residue(ResIdx(0)).number() == ResNum(perturbed_resnum.val) ):
+            solute = molecule
+            moleculeList.remove(molecule)
+            break
+
+    if solute is None:
+        print ("FATAL ! Could not find a solute to perturb with residue number %s in the input ! Check the value of your cfg keyword 'perturbed residue number'" % perturbed_resnum.val)
+        sys.exit(-1)
+
+    #solute = moleculeList[0]
+
     lig_name = solute.residue(ResIdx(0)).name().value()
 
     solute = solute.edit().rename(lig_name).commit()
@@ -889,7 +903,8 @@ def createSystemFreeEnergy(molecules):
 
     solvent = MoleculeGroup("solvent")
 
-    for molecule in moleculeList[1:]:
+    #for molecule in moleculeList[1:]:
+    for molecule in moleculeList:
         molecules.add(molecule)
         solvent.add(molecule)
 
@@ -1194,7 +1209,7 @@ def clearBuffers(system):
     changedmols = MoleculeGroup("changedmols")
 
     for molnum in molnums:
-        mol = mols.molecule(molnum).molecule()
+        mol = mols.molecule(molnum)[0].molecule()
         molprops = mol.propertyKeys()
         editmol = mol.edit()
         for molprop in molprops:
@@ -1261,14 +1276,14 @@ def generateDistanceRestraintsDict(system):
     # Find atom nearest to COG
     molecules = system.molecules()
     molnums = molecules.molNums()
-    solute = molecules.at(MolNum(1)).molecule()
+    solute = molecules.at(MolNum(1))[0].molecule()
     nearestcog_atom = getAtomNearCOG( solute )
     icoord = nearestcog_atom.property("coordinates")
     # Step 2) Find nearest 'CA' heavy atom in other solutes (skip water  & ions)
     dmin = 9999999.0
     closest = None
     for molnum in molnums:
-        molecule = molecules.molecule(molnum).molecule()
+        molecule = molecules.molecule(molnum)[0].molecule()
         if molecule == solute:
             continue
         if molecule.residues()[0].name() == ResName("WAT"):
@@ -1287,7 +1302,7 @@ def generateDistanceRestraintsDict(system):
     dmin = 9999999.0
     mirror_closest = None
     for molnum in molnums:
-        molecule = molecules.molecule(molnum).molecule()
+        molecule = molecules.molecule(molnum)[0].molecule()
         if molecule == solute:
             continue
         if molecule.residues()[0].name() == ResName("WAT"):
@@ -1662,10 +1677,13 @@ def runFreeNrg():
             #grads[lambda_val.val].accumulate(gradients[i-1])
             grads[lambda_val.val].accumulate(gradient)
     s2 = timer.elapsed() / 1000.
+    outgradients.flush()
+    outfile.flush()
+    outgradients.close()
     outfile.close()
     print("Simulation took %d s " % ( s2 - s1))
     print("###===========================================================###\n")
-
+  
 
     if os.path.exists("gradients.s3"):
         siregrads = Sire.Stream.load("gradients.s3")

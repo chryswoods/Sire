@@ -38,6 +38,8 @@
 #include "SireMol/atomcoords.h"
 #include "SireMol/moleditor.h"
 
+#include "SireBase/variantproperty.h"
+
 #include "SireMol/amberparameters.h"
 
 #include "SireSystem/system.h"
@@ -384,7 +386,6 @@ QString OpenMMMDIntegrator::toString() const
 
 void OpenMMMDIntegrator::initialise()
 {
-    qDebug()<<CODELOC;
     bool Debug = false;
 
     if (Debug)
@@ -645,7 +646,7 @@ void OpenMMMDIntegrator::initialise()
 
             system_openmm->addParticle(m[j]);
 
-            Atom at = molatoms.at(j);
+            Atom at = molatoms(j);
             AtomNum atnum = at.number();
 
             //if (Debug)
@@ -1780,6 +1781,7 @@ void OpenMMMDIntegrator::updateBoxDimensions(OpenMM::State &state_openmm,
                                              QVector< Vector> &buffered_dimensions, 
                                              bool Debug, AtomicVelocityWorkspace &ws)
 {
+    Debug = false;
     OpenMM::Vec3 a;
     OpenMM::Vec3 b;
     OpenMM::Vec3 c;

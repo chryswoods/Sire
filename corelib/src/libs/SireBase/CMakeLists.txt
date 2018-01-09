@@ -9,6 +9,9 @@
 # Other Sire libraries
 include_directories(${CMAKE_SOURCE_DIR}/src/libs)
 
+# This library uses Intel Threaded Building blocks
+include_directories(${TBB_INCLUDE_DIR})
+
 if (SIRE_FOUND_CPUID)
   add_definitions( "-DSIRE_FOUND_CPUID" )
   add_definitions( "${CPUID_DEFINITIONS}" )
@@ -43,7 +46,11 @@ set ( SIREBASE_HEADERS
       packedarray2d.hpp
       packedarrays.h
       pairmatrix.hpp
+      range.h
+      ranges.h
+      refcountdata.h
       sire_process.h
+      parallel.h
       properties.h
       property.h
       propertylist.h
@@ -58,9 +65,11 @@ set ( SIREBASE_HEADERS
       stringmangler.h
       stringproperty.h
       tempdir.h
+      timeproperty.h
       trigarray2d.h
       trigarray2d.hpp
       unittest.h
+      variantproperty.h
     )
 
 # Define the sources in SireBase
@@ -86,18 +95,26 @@ set ( SIREBASE_SOURCES
       meminfo.cpp
       numberproperty.cpp
       packedarray2d.cpp
+      parallel.cpp
       process.cpp
       properties.cpp
       property.cpp
       propertylist.cpp
       propertymap.cpp
+      range.cpp
+      ranges.cpp
+      refcountdata.cpp
       savestate.cpp
       sharedpolypointer.cpp
       stringmangler.cpp 
       stringproperty.cpp    
       tempdir.cpp
+      timeproperty.cpp
       trigarray2d.cpp 
       unittest.cpp
+      variantproperty.cpp
+
+      test_sharedptr.cpp
 
       ${SIREBASE_HEADERS}
     )
@@ -114,6 +131,8 @@ target_link_libraries (SireBase
                        SireUnits
                        SireID
                        SireStream
+                       ${TBB_LIBRARY}
+                       ${TBB_MALLOC_LIBRARY}
                        )
 
 if (SIRE_FOUND_CPUID)

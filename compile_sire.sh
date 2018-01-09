@@ -21,7 +21,6 @@ case $key in
     --install)
     INSTALL_SIRE_DIR="$2"
     echo "Installing Sire into ${INSTALL_SIRE_DIR}"
-    exit 0
     ;;
     --clean)
     echo "Completely cleaning the build directories..."
@@ -34,8 +33,8 @@ esac
 
 # Set the version of miniconda to use. Choose "latest" for the latest
 # miniconda, or set a specific version here
-#MINICONDA_VERSION="3.9.1"
-MINICONDA_VERSION="latest"
+MINICONDA_VERSION="4.2.12"
+#MINICONDA_VERSION="latest"
 
 if [ -z "$INSTALL_SIRE_DIR" ]; then
     # Ask the user where they would like to install sire. By default
@@ -108,11 +107,11 @@ fi
 if [ "$(uname)" == "Darwin" ]; then
     # This is running on a Mac
     PLATFORM="OSX"
-    MINICONDA="http://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-MacOSX-${BIT_TYPE}.sh"
+    MINICONDA="https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-MacOSX-${BIT_TYPE}.sh"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
     # This is running on Linux
     PLATFORM="Linux"
-    MINICONDA="http://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-${BIT_TYPE}.sh"
+    MINICONDA="https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-${BIT_TYPE}.sh"
 elif [ "$(expr substr $(uname -s) 1 10)" == "MINGW32_NT" ]; then
     # This is running on Windows NT
     echo "Compilation on windows is not supported."
@@ -172,6 +171,10 @@ else
         bash build/miniconda.sh -b -p ${INSTALL_DIR}
     fi
 fi
+
+# Now set the MACOSX_DEPLOYMENT_TARGET to make sure
+# that we can work with Mountain Lion or above
+export MACOSX_DEPLOYMENT_TARGET="10.8"
 
 # Now run the python install script
 if [ -e "${INSTALL_DIR}/bin/python" ]; then

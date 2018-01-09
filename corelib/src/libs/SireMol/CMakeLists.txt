@@ -33,6 +33,7 @@ set ( SIREMOL_HEADERS
       atomnum.h
       atompolarisabilities.h
       atomproperty.hpp
+      atomradii.h
       atomselection.h
       atomsin.hpp
       atomvelocities.h
@@ -89,6 +90,7 @@ set ( SIREMOL_HEADERS
       moleculedata.h
       moleculegroup.h
       moleculegroups.h
+      moleculeinfo.h
       moleculeinfodata.h
       molecules.h
       moleculeview.h
@@ -195,6 +197,7 @@ set ( SIREMOL_SOURCES
       moleculedata.cpp
       moleculegroup.cpp
       moleculegroups.cpp
+      moleculeinfo.cpp
       moleculeinfodata.cpp
       molecules.cpp
       moleculeview.cpp

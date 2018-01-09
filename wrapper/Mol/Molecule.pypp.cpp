@@ -22,6 +22,8 @@ namespace bp = boost::python;
 
 #include "molecule.h"
 
+#include "moleculeinfo.h"
+
 #include "moleditor.h"
 
 #include "molviewproperty.h"
@@ -43,6 +45,8 @@ SireMol::Molecule __copy__(const SireMol::Molecule &other){ return SireMol::Mole
 #include "Qt/qdatastream.hpp"
 
 #include "Helpers/str.hpp"
+
+#include "Helpers/len.hpp"
 
 void register_Molecule_class(){
 
@@ -145,6 +149,17 @@ void register_Molecule_class(){
                 , hasProperty_function_value
                 , ( bp::arg("key") )
                 , "Return whether or not this molecule posseses a property at key key" );
+        
+        }
+        { //::SireMol::Molecule::info
+        
+            typedef ::SireMol::MoleculeInfo ( ::SireMol::Molecule::*info_function_type)(  ) const;
+            info_function_type info_function_value( &::SireMol::Molecule::info );
+            
+            Molecule_exposer.def( 
+                "info"
+                , info_function_value
+                , "Return the MoleculeInfo object that holds information about the layout\nof the atoms, residues, chains and segments in the molecule" );
         
         }
         { //::SireMol::Molecule::isEmpty
@@ -436,6 +451,7 @@ void register_Molecule_class(){
                             bp::return_internal_reference<1, bp::with_custodian_and_ward<1,2> >() );
         Molecule_exposer.def( "__str__", &__str__< ::SireMol::Molecule > );
         Molecule_exposer.def( "__repr__", &__str__< ::SireMol::Molecule > );
+        Molecule_exposer.def( "__len__", &__len_size< ::SireMol::Molecule > );
     }
 
 }

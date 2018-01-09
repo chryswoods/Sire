@@ -27,6 +27,8 @@ namespace bp = boost::python;
 
 #include "atomproperty.hpp"
 
+#include "atomradii.h"
+
 #include "atomvelocities.h"
 
 #include "atomproperty.hpp"
@@ -241,6 +243,19 @@ void register_AtomIntProperty_class(){
         
             typedef SireMol::AtomProperty< long long > exported_class_t;
             typedef bool ( ::SireMol::AtomProperty< long long >::*isCompatibleWith_function_type)( ::SireMol::MoleculeInfoData const & ) const;
+            isCompatibleWith_function_type isCompatibleWith_function_value( &::SireMol::AtomProperty< long long >::isCompatibleWith );
+            
+            AtomIntProperty_exposer.def( 
+                "isCompatibleWith"
+                , isCompatibleWith_function_value
+                , ( bp::arg("molinfo") )
+                , "" );
+        
+        }
+        { //::SireMol::AtomProperty< long long >::isCompatibleWith
+        
+            typedef SireMol::AtomProperty< long long > exported_class_t;
+            typedef bool ( ::SireMol::AtomProperty< long long >::*isCompatibleWith_function_type)( ::SireMol::MoleculeInfo const & ) const;
             isCompatibleWith_function_type isCompatibleWith_function_value( &::SireMol::AtomProperty< long long >::isCompatibleWith );
             
             AtomIntProperty_exposer.def( 

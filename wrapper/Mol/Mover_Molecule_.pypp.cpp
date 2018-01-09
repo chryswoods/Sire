@@ -21,6 +21,8 @@ namespace bp = boost::python;
 
 #include "molecule.h"
 
+#include "moleculeinfo.h"
+
 #include "moleditor.h"
 
 #include "molviewproperty.h"
@@ -84,6 +86,8 @@ namespace bp = boost::python;
 SireMol::Mover<SireMol::Molecule> __copy__(const SireMol::Mover<SireMol::Molecule> &other){ return SireMol::Mover<SireMol::Molecule>(other); }
 
 #include "Helpers/str.hpp"
+
+#include "Helpers/len.hpp"
 
 void register_Mover_Molecule__class(){
 
@@ -500,6 +504,7 @@ void register_Mover_Molecule__class(){
         Mover_Molecule__exposer.def( "clone", &__copy__);
         Mover_Molecule__exposer.def( "__str__", &__str__< ::SireMol::Mover<SireMol::Molecule> > );
         Mover_Molecule__exposer.def( "__repr__", &__str__< ::SireMol::Mover<SireMol::Molecule> > );
+        Mover_Molecule__exposer.def( "__len__", &__len_size< ::SireMol::Mover<SireMol::Molecule> > );
     }
 
 }
